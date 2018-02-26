@@ -29,7 +29,8 @@ public class DLList {
 	int maxX = 0;
 	int maxY = 0;
 	static boolean debug = false;
-
+	// för att kunna få addLast att sätta in sorterbara element i DLList så krävs det att vi kan buffra element.
+	Node bufferedNode;
 
 	/** this Node is the building block for our list. */
 	private static class Node implements Comparable<Node> {
@@ -47,7 +48,7 @@ public class DLList {
 
 		public int compareTo( Node n ) {
 			double diff= imp-n.imp;
-			if(true) System.out.println("compareTo="+diff);			
+			if(debug) System.out.println("compareTo="+diff);			
 
 			if (diff<0) { return -1;
 			} else if (diff > 0) { return +1;
@@ -132,7 +133,7 @@ public class DLList {
 	// privat inre Iterator klass 
 	private class DLListIterator implements Iterator<Point> {
 		/** pointer to the current item. */
-		private Node currentIndex = q.peek();
+		private Node currentIndex = head;
 		public boolean hasNext( ) {
 			return currentIndex != null;
 		}
@@ -178,7 +179,7 @@ public class DLList {
 	}	
 
 	/**
-	 * Creates a "fake" list from a constant array.
+	 * Creates a "fake" list from a constant  array.
 	 * can be used for debugging
 	 * @return the number of points in the list
 	 */
@@ -187,8 +188,8 @@ public class DLList {
 		// meningslÃ¶sa punkter
 		int[] x = {2, 4, 6, 8, 3, 5, 7, 2, 4, 6, 8, 3, 5, 7, 2, 4, 6, 8, 3, 5, 7, 2, 4, 6, 8};
 		int[] y = {2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 8};
-		//int[] x = {0, 1, 3, 4, 5, 6, 9, 10, 9, 7, 5, 4, 2};
-		//int[] y = {0, 3, 3, 4, 4, 5, 5,  3, 1, 1, 1, 0, 0};
+		//int[] x = {1, 1, 2, 3, 3, 1};
+		//int[] y = {1, 2, 3, 3, 2, 3};
 		for (int i =0; i<x.length; i++) {
 			this.addLast( new Point(x[i], y[i]) );
 			n++;
@@ -210,33 +211,28 @@ public class DLList {
 	 * Adds a point to the end of the list
 	 * @param p point to add
 	 * @throws NullPointerException if p==null
-	 */
+	 */	
 	public void addLast(Point p) {
+
 		Node node = new Node(p,q.size());
+
 		if(true) System.out.println("inserting " + node.toString());
 
-		if (q.size() == 0) {
+		if (q.size() == 0) {		// DLListan är tom. Sätt in elementet i början på listan.
 			head = node;
-			head.prev = null;
-			head.next = null;
-			if(debug) System.out.println(" as head");
 		}
-		else if (q.size() == 1) {
+		else if (q.size() == 1) {	// DLListan innehåller bara ett element. Länka ihop elementen och sätt in elementet som det sista i listan.
 			head.next = node;
 			node.prev = head;
 			tail = node;
-			if(debug) System.out.println(" as first tail");
 		}
-		else {
+		else { //DLListan innehåller nu alltså mer än två element. Länka ihop elementen och länka om slutet på listan till att peka på detta elementet. Sätt in elementet som det sista i listan.
 			tail.next = node;
 			node.prev = tail;
-			// ---- Calculate importanceOfP
-			if(debug) System.out.println();
 			tail.imp = this.importanceOfP(tail.prev.p, tail.p, tail.next.p);
-			if(debug) System.out.println("Calculating importance for " +tail.nbr+ " based on " + tail.prev.nbr + " and " + tail.next.nbr);
-			if(true) System.out.println("New importance is: "+tail.imp);
+			q.remove(tail);
+			q.add(tail);
 			tail = node;
-			if(debug) System.out.println("Previous tail was " + tail.prev.prev.nbr + tail.prev.nbr + tail.nbr);
 		}
 		q.offer(node);
 
@@ -252,30 +248,52 @@ public class DLList {
 	 */
 	public void reduceListToKElements(int k) {
 		// TODO
+		if(debug) System.out.println("Resorting PQ");	
+
 		// Calculates the initial important measure for all nodes.
+		// BY REBUILDING THE LIST
+		DLListIterator it = new DLListIterator();
+		int i = 0;
+		Node ptr = head.next;
+		while (i < q.size() - 2) {
+			ptr.imp = this.importanceOfP(ptr.prev.p, ptr.p, ptr.next.p);
+			q.remove(ptr);
+			q.add(ptr);
+			ptr = ptr.next;
+			i++;
+		}
+
 		// Assume there are at least 3 nodes otherwise it's all meaningless.
 		if (q.size() < 3) return;
 
 		if(debug) System.out.println("Reducing list to k elements.....");	
-
+		
+		// now reduce the list to the k most important node
 		while (q.size() > k) {
 			if (q.size() == 0) throw new NoSuchElementException();
 			Node node = q.poll();
-			
-			// now reduce the list to the k most important node
-			if(debug) System.out.println(node + " is about to be removed");			
+
+			if(true) System.out.println(node.nbr + " removed. New neigbours: " + node.prev.nbr + "&" + node.next.nbr);
 
 			// recalculate importance for rem.next, neighbour to the right
 			// and rem.prev, neighbour to the left	
-		/*node.prev.next = node.next;
-			if (node.nbr > 2)
-//				if(debug) System.out.println("RE-calculating importance for " +node.prev.prev.nbr+ " based on " + node.prev.nbr + " and " + node.prev.next.nbr);
+			
+			node.prev.next = node.next;
+			if (node.nbr > 2) {
+				//				if(debug) System.out.println("RE-calculating importance for " +node.prev.prev.nbr+ " based on " + node.prev.nbr + " and " + node.prev.next.nbr);
 				node.prev.imp = this.importanceOfP(node.prev.prev.p, node.prev.p, node.prev.next.p);
-
+				q.remove(node.prev);
+				q.add(node.prev);
+			}
+			
 			node.next.prev = node.prev;
-			if (node.nbr < q.size()-8)
-//				if(debug) System.out.println("RE-calculating importance for " +node.next.prev.nbr+ " based on " + node.next.nbr + " and " + node.next.next.nbr);
-			node.next.imp = this.importanceOfP(node.next.prev.p, node.next.p, node.next.next.p);			
-		*/}
+			if (node.nbr < q.size() - 1) {
+				//				if(debug) System.out.println("RE-calculating importance for " +node.next.prev.nbr+ " based on " + node.next.nbr + " and " + node.next.next.nbr);
+				node.next.imp = this.importanceOfP(node.next.prev.p, node.next.p, node.next.next.p);
+				q.remove(node.next);
+				q.add(node.next);
+			}
+		}
+		
 	}
 }
